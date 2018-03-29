@@ -1,0 +1,31 @@
+{
+  "name": "binance-profit-from-export",
+  "version": "0.0.1",
+  "description": "Process the XLSX file from Binance's Trade History export and figure out profits",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/victorbutler/binance-profit-calculator.git"
+  },
+  "keywords": [
+    "binance",
+    "profit",
+    "calculator",
+    "bags",
+    "matching"
+  ],
+  "author": "https://github.com/victorbutler",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/victorbutler/binance-profit-calculator/issues"
+  },
+  "homepage": "https://github.com/victorbutler/binance-profit-calculator#readme",
+  "dependencies": {
+    "big.js": "^5.0.3",
+    "xlsx": "^0.12.7"
+  }
+}
