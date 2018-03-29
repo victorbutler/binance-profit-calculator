@@ -110,6 +110,6 @@ for (var profit of database.pairs) {
   unrealizedProfit = unrealizedProfit.plus(profit.Difference)
   console.log(profit.Market + ', ' + profit.Amount.toString() + ', ' + profit.Fee.toString() + ', ' + profit.Bought.toString() + ', ' + profit.Sold.toString() + ', ' + profit.Difference.toString() + ', ' + profit.DifferenceWithoutBags.toString())
 }
-console.log('Profit +Bags:', realizedProfit.toString(), 'Profit -Bags:', unrealizedProfit.toString())
+console.log('Profit -Bags:', realizedProfit.toString(), 'Profit +Bags:', unrealizedProfit.toString())
 
 // TODO: Get the market price for each Bag pair to show what profit would be if you sold right now

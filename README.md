@@ -1,7 +1,7 @@
 # binance-profit-calculator
 This tool reads your TradeHistory.xlsx file exported from Binance and collects profit information based on pairs. If you have bags, it also tries to figure out what your un-matched trade profit is. *(un-matched trade is a BUY order that has no corresponding SELL order yet)*
 
-![binance-profit-calculator](https://cdn.discordapp.com/attachments/411967752459386880/428851267100475392/Screen_Shot_2018-03-29_at_3.39.26_AM.png)
+![binance-profit-calculator](https://cdn.discordapp.com/attachments/411967752459386880/428853221231034378/Screen_Shot_2018-03-29_at_3.48.29_AM.png)
 
 ## Instructions
 
