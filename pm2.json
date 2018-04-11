@@ -1,0 +1,18 @@
+{
+  "apps": [{
+    "name": "bpc",
+    "cwd": ".",
+    "script": "npm",
+    "args": [
+      "run prod"
+    ],
+    "env": {
+      "NODE_ENV": "production"
+    },
+    "node_args": [],
+    "log_date_format": "YYYY-MM-DD HH:mm Z",
+    "exec_interpreter": "",
+    "exec_mode": "fork",
+    "autorestart": false
+  }]
+}
