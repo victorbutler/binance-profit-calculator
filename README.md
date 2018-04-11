@@ -12,3 +12,5 @@ You need Node.js to run this app. Download and install version 9.x from here: ht
 3. Export your **Trade History** from Binance
 4. Run `npm start`
 5. Go to http://localhost:7000 in your browser
+
+### Does not take into account deposits or withdrawals
