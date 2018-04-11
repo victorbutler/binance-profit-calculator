@@ -1,115 +1,131 @@
-const xlsx = require('xlsx')
-const Big = require('big.js')
-const wb = xlsx.readFile('TradeHistory.xlsx')
-const lines = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
-var database = {
-  pairs: [],
-  _pairs: [],
-  bags: [],
-  _bags: [],
-  total: {
-    bought: Big(0),
-    sold: Big(0),
-    difference: Big(0),
-    fees: Big(0)
-  }
-}
-
-for (var line of lines) {
-  line.Price = Big(line.Price)
-  line.Amount = Big(line.Amount)
-  line.Total = Big(line.Total)
-  line.Fee = Big(line.Fee)
-  if (database._pairs.indexOf(line.Market) === -1) {
-    database._pairs.push(line.Market)
-    if (line.Type === 'SELL') {
-      // line.Total *= -1
-      line.Amount = line.Amount.times(-1)
-    }
-    database.pairs.push({
-      Market: line.Market,
-      Amount: line.Amount,
-      Fee: line.Fee,
-      Bought: (line.Type === 'BUY') ? line.Total : Big(0),
-      Sold: (line.Type === 'SELL') ? line.Total : Big(0),
-      Difference: (line.Type === 'BUY') ? line.Total.times(-1) : Big(0),
-      DifferenceWithoutBags: Big(0),
-      _data: [line]
-    })
-  } else {
-    if (line.Type === 'BUY') {
-      database.pairs[database._pairs.indexOf(line.Market)].Bought = database.pairs[database._pairs.indexOf(line.Market)].Bought.plus(line.Total)
-    } else if (line.Type === 'SELL') {
-      // line.Total = line.Total * -1
-      line.Amount = line.Amount.times(-1)
-      database.pairs[database._pairs.indexOf(line.Market)].Sold = database.pairs[database._pairs.indexOf(line.Market)].Sold.plus(line.Total)
-    }
-    // database.pairs[database._pairs.indexOf(line.Market)].Total += line.Total
-    database.pairs[database._pairs.indexOf(line.Market)].Fee = database.pairs[database._pairs.indexOf(line.Market)].Fee.plus(line.Fee)
-    database.pairs[database._pairs.indexOf(line.Market)].Amount = database.pairs[database._pairs.indexOf(line.Market)].Amount.plus(line.Amount)
-    database.pairs[database._pairs.indexOf(line.Market)].Difference = database.pairs[database._pairs.indexOf(line.Market)].Sold.minus(database.pairs[database._pairs.indexOf(line.Market)].Bought)
-    database.pairs[database._pairs.indexOf(line.Market)].DifferenceWithoutBags = database.pairs[database._pairs.indexOf(line.Market)].Sold.minus(database.pairs[database._pairs.indexOf(line.Market)].Bought)
-    database.pairs[database._pairs.indexOf(line.Market)]._data.push(line)
-  }
-  if (line.Type === 'BUY') {
-    database.total.bought = database.total.bought.plus(line.Total)
-  } else if (line.Type === 'SELL') {
-    database.total.sold = database.total.sold.plus(line.Total)
-  }
-  database.total.fees = database.total.fees.plus(line.Fee)
-}
+process.title = 'binance-profit-calculator'
+const debug = !(process.env.NODE_ENV === 'production') || false
+const testMode = false // don't make any remote requests
+console.debug = (...args) => debug && console.log(...args)
 
 /**
- * At this point, our totals are correct (including Bags)
- * Now we try to backtrack and remove Bag totals to see
- * profit of complete matched trades. It gets complicated
- * here because now we have to look in the pair history and
- * match up the leftover coin amount to the last BUYs. If
- * they match, then we know the value to deduct from the total
- * to get an accurate difference.
+ * Misc Libraries
  **/
+const Big = require('big.js')
+const path = require('path')
+const del = require('del')
 
-// Search the pairs for any pairs with Amount > 0 (unsold coins)
-for (var coinpair of database.pairs) {
-  if (coinpair.Amount.gt(0)) {
-    var amountToRectify = coinpair.Amount
-    var matchedCompletely = false
-    var _dataIndexer = 0
-    while (amountToRectify.gt(0) && _dataIndexer < coinpair._data.length && matchedCompletely === false) {
-      // We are going to assume the data from Binance hasn't been altered and the dates are in descending order
-      if (coinpair._data[_dataIndexer].Type === 'BUY') { // BUY is good, we're on the right track
-        amountToRectify = amountToRectify.minus(coinpair._data[_dataIndexer].Amount)
-      }
-      if (database._bags.indexOf(coinpair.Market) === -1) {
-        database._bags.push(coinpair.Market)
-        database.bags.push({
-          Market: coinpair.Market,
-          Amount: coinpair._data[_dataIndexer].Amount,
-          BoughtValue: coinpair._data[_dataIndexer].Total,
-          _data: [coinpair._data[_dataIndexer]]
-        })
-      } else {
-        database.bags[database._bags.indexOf(coinpair.Market)].Amount = database.bags[database._bags.indexOf(coinpair.Market)].Amount.plus(coinpair._data[_dataIndexer].Amount)
-        database.bags[database._bags.indexOf(coinpair.Market)].BoughtValue = database.bags[database._bags.indexOf(coinpair.Market)].BoughtValue.plus(coinpair._data[_dataIndexer].Total)
-        database.bags[database._bags.indexOf(coinpair.Market)]._data.push(coinpair._data[_dataIndexer])
-      }
-      if (amountToRectify.eq(0)) {
-        matchedCompletely = true
-        coinpair.DifferenceWithoutBags = database.bags[database._bags.indexOf(coinpair.Market)].BoughtValue.plus(coinpair.Difference).toString()
-      }
-      _dataIndexer++
+/**
+ * Config
+ **/
+const prop = require('properties')
+const propOptions = {
+  path: true,
+  namespaces: true
+}
+let config
+const setupConfig = () => new Promise((resolve, reject) => {
+  prop.parse(path.join(__dirname, 'config.properties'), propOptions, (err, data) => {
+    if (!err) {
+      config = data
+      resolve()
+    } else {
+      reject(err)
     }
+  })
+})
+
+/**
+ * File based JSON storage
+ **/
+const store = require('data-store')('bpc', {
+  cwd: 'data'
+})
+store.create('history')
+
+/**
+ * Web Server Setup
+ **/
+const express = require('express')
+const app = express()
+const multer = require('multer')
+const upload = multer({dest: path.join(__dirname, 'uploads')})
+const http = require('http').Server(app)
+const io = require('socket.io')(http)
+const webpack = require('webpack')
+const webpackDevMiddleware = require('webpack-dev-middleware')
+const webpackHotMiddleware = require('webpack-hot-middleware')
+const webpackConfigPromise = require('./build/webpack.dev.conf.js')
+const tradeHistory = require('./server/tradeHistory.js')
+
+const socketIoPackageWrapper = (payload, status) => {
+  return {
+    timestamp: new Date(),
+    payload: payload,
+    status: (status ? status : {code: 200, msg: 'OK'})
   }
 }
 
-var realizedProfit = Big(0)
-var unrealizedProfit = Big(0)
-console.log('MARKET, AMOUNT, FEE, BOUGHT, SOLD, PROFIT +BAGS, PROFIT -BAGS')
-for (var profit of database.pairs) {
-  realizedProfit = realizedProfit.plus(profit.DifferenceWithoutBags)
-  unrealizedProfit = unrealizedProfit.plus(profit.Difference)
-  console.log(profit.Market + ', ' + profit.Amount.toString() + ', ' + profit.Fee.toString() + ', ' + profit.Bought.toString() + ', ' + profit.Sold.toString() + ', ' + profit.Difference.toString() + ', ' + profit.DifferenceWithoutBags.toString())
-}
-console.log('Profit -Bags:', realizedProfit.toString(), 'Profit +Bags:', unrealizedProfit.toString())
+const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
+  const webpackConfig = wpConfig,
+        compiler = webpack(wpConfig)
 
-// TODO: Get the market price for each Bag pair to show what profit would be if you sold right now
+  app.post('/tradeHistory', upload.single('tradeHistory'), function (req, res, next) {
+    if (req.file.originalname.match(/\.(xls|xlsx|csv)$/i)) {
+      try {
+        // send this filename to the tradeHistory processor
+        const database = tradeHistory(req.file.path)
+        store.set('history', database)
+        console.debug('TradeHistory imported and saved')
+        io.emit('history', socketIoPackageWrapper(database))
+        res.sendStatus(200)
+      } catch (e) {
+        res.status(500).send('Error processing your history file: ' + e.message)
+      }
+      // delete uploaded file
+      del.sync([req.file.path])
+    } else {
+      res.status(500).send('Bad file type. Only XLS, XLSX, and CSV files are supported.')
+    }
+  })
+
+  app.use(express.static(config.server.docroot))
+
+  if (debug) {
+    // Set up Webpack Middleware
+    app.use(webpackDevMiddleware(compiler, {
+      noinfo: true,
+      publicPath: webpackConfig.output.publicPath
+    }))
+
+    // Set up Webpack Hot Module Reloading
+    app.use(webpackHotMiddleware(compiler, {
+      log: console.debug,
+      path: '/__webpack_hmr',
+      heartbeat: 10 * 1000
+    }))
+  }
+
+  // Set up socket.io streaming
+  io.on('connection', function(socket){
+    console.debug('BPC: A user connected')
+    // socket.emit('profits', {timestamp: new Date(), data: profitsWithUSD()})
+    // socket.on('profits', function(msg){
+    //   // console.debug('message: ' + msg)
+    //   socket.emit('profits', {timestamp: new Date(), data: profitsWithUSD()})
+    // })
+    socket.on('disconnect', function(){
+      console.debug('BPC: A user disconnected')
+    })
+  })
+
+  // Listen on the port
+  http.listen(config.server.port, function(){
+    console.log('BPC: listening on *:' + config.server.port)
+  })
+})
+
+setupConfig()
+.then(() => webpackConfigPromise)
+.then((wpConfig) => setupWebServer(wpConfig))
+.then(() => console.log('finished'))
+.catch(reason => {
+  console.error('BPC:', reason)
+  console.error('BPC: Setup sequence incomplete. Exiting now.')
+  process.exit(1)
+})
