@@ -70,6 +70,7 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
       try {
         // send this filename to the tradeHistory processor
         const database = tradeHistory(req.file.path)
+        store.del('history')
         store.set('history', database)
         console.debug('TradeHistory imported and saved')
         io.emit('history', socketIoPackageWrapper(database))
