@@ -104,6 +104,9 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
   // Set up socket.io streaming
   io.on('connection', function(socket){
     console.debug('BPC: A user connected')
+    if (store.get('history')) {
+      socket.emit('history', socketIoPackageWrapper(store.get('history')))
+    }
     // socket.emit('profits', {timestamp: new Date(), data: profitsWithUSD()})
     // socket.on('profits', function(msg){
     //   // console.debug('message: ' + msg)
