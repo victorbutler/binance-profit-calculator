@@ -7,7 +7,7 @@
   "scripts": {
     "dev-old": "webpack-dev-server --inline --progress --config build/webpack.dev.conf.js",
     "dev": "node index.js",
-    "prod": "npm run build && NODE_ENV=production node index.js",
+    "prod": "NODE_ENV=production npm run build && NODE_ENV=production node index.js",
     "start": "npm run prod",
     "unit": "jest --config test/unit/jest.conf.js --coverage",
     "e2e": "node test/e2e/runner.js",
