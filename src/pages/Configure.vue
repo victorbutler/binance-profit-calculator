@@ -66,6 +66,7 @@ export default {
           .then(result => {
             console.log('Configure: Upload complete', result.data)
             this.processingComplete = true
+            this.processingError = false
             setTimeout(() => {
               this.processingShow = false
             }, 6000)
