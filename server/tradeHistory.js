@@ -68,7 +68,7 @@ module.exports = (filename) => {
         Fee: line.Fee,
         Bought: (line.Type === 'BUY') ? line.Total : Big(0),
         Sold: (line.Type === 'SELL') ? line.Total : Big(0),
-        Difference: (line.Type === 'BUY') ? line.Total.times(-1) : Big(0),
+        Difference: (line.Type === 'SELL') ? line.Total : line.Total.times(-1),
         DifferenceWithoutBags: Big(0),
         _data: [line]
       })
