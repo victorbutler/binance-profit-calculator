@@ -45,7 +45,8 @@ export default {
   },
   data () {
     return {
-      markets: []
+      markets: [],
+      userData: []
     }
   },
   methods: {
@@ -68,6 +69,12 @@ export default {
           this.$store.commit('history', msg.payload)
           this.getMarkets()
           console.log('App: Got some history', msg)
+        }
+      },
+      binanceUserData (msg) {
+        if (msg.status.code === 200) {
+          this.userData.push(msg.payload)
+          console.log('App: Got binanceUserData', msg)
         }
       }
     }

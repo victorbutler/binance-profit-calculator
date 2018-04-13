@@ -28,6 +28,11 @@
         </div>
       </div>
     </b-form>
+    <h2>Binance Monitoring</h2>
+    <b-button-group>
+      <b-button :variant="(binanceMonitor === false ? 'danger' : '')" v-on:click="turnOffBinanceMonitor">Off</b-button>
+      <b-button :variant="(binanceMonitor === true ? 'danger' : '')" v-on:click="turnOnBinanceMonitor">On</b-button>
+    </b-button-group>
     <h2 v-if="$store.state.history !== null">Head on over to <b-link to="Profits">Profits</b-link> to see the results!</h2>
     <b-modal v-model="processingShow" v-on:ok="handleOk" id="modal-processing" :hide-footer="!processingComplete" ok-only centered title="Processing">
       <p class="my-4" v-if="!processingComplete">Processing your history...</p>
@@ -49,7 +54,8 @@ export default {
       file: null,
       processingShow: false,
       processingComplete: false,
-      processingError: null
+      processingError: null,
+      binanceMonitor: false
     }
   },
   methods: {
@@ -77,7 +83,30 @@ export default {
       } else {
         this.processingError = 'Select a file to process'
       }
+    },
+    turnOffBinanceMonitor () {
+      this.$socket.emit('configuration', {key: 'binanceMonitor', value: 'Off'})
+    },
+    turnOnBinanceMonitor () {
+      this.$socket.emit('configuration', {key: 'binanceMonitor', value: 'On'})
     }
+  },
+  socket: {
+    events: {
+      configuration (msg) {
+        console.log('Configuration', msg)
+        if (msg.status.code === 200) {
+          if (msg.payload.binanceMonitor === 'On') {
+            this.binanceMonitor = true
+          } else if (msg.payload.binanceMonitor === 'Off') {
+            this.binanceMonitor = false
+          }
+        }
+      }
+    }
+  },
+  mounted () {
+    this.$socket.emit('configuration', 'Refresh')
   }
 }
 </script>
