@@ -110,7 +110,7 @@ module.exports = (filename) => {
   // Search the pairs for any pairs with Amount > 0 (unsold coins)
   for (let market in databaseContainer) {
     let database = databaseContainer[market]
-    for (var coinpair of database.pairs) {
+    for (let coinpair of database.pairs) {
       if (coinpair.Amount.gt(0)) {
         let amountToRectify = coinpair.Amount
         let matchedCompletely = false
@@ -147,7 +147,7 @@ module.exports = (filename) => {
   for (let market in databaseContainer) {
     let profitMinusBags = Big(0)
     let profitPlusBags = Big(0)
-    for (var profit of databaseContainer[market].pairs) {
+    for (let profit of databaseContainer[market].pairs) {
       profitMinusBags = profitMinusBags.plus(profit.DifferenceWithoutBags)
       profitPlusBags = profitPlusBags.plus(profit.Difference)
       // console.log(profit.Market + ', ' + profit.Amount.toString() + ', ' + profit.Fee.toString() + ', ' + profit.Bought.toString() + ', ' + profit.Sold.toString() + ', ' + profit.Difference.toString() + ', ' + profit.DifferenceWithoutBags.toString())
