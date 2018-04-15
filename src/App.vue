@@ -5,6 +5,23 @@
       <b-alert variant="warning" :show="$store.state.history === null">
         <span class="h5">Set up history:</span> Looks like your trade history hasn't been imported yet. Head over to the <b-link to="Configure" class="alert-link">Configure BPC page</b-link> to get started.
       </b-alert>
+      <div v-for="notification in notifications"
+        v-bind:key="notification.id">
+        <b-alert
+          :show="notification.dismissCountDown"
+          :variant="notification.variant"
+          :dismissible="notification.dismissible"
+          @dismiss-count-down="notification.countDownChanged"
+          @dismissed="notification.dismissCountDown=0">
+          <h5>{{ notification.title }}</h5>
+          <span>{{ notification.message }}</span>
+          <b-progress :variant="notification.variant"
+            :max="notification.dismissSecs"
+            :value="notification.dismissCountDown"
+            height="4px">
+          </b-progress>
+        </b-alert>
+      </div>
     </div>
     <div id="main" role="main">
       <!-- #MAIN CONTENT -->
@@ -21,6 +38,7 @@
 
 <script>
 import Heading from './components/Heading.vue'
+import Big from 'big.js'
 
 // const checksum = function (s) {
 //   let hash = 0
@@ -46,7 +64,7 @@ export default {
   data () {
     return {
       markets: [],
-      userData: []
+      notifications: []
     }
   },
   methods: {
@@ -60,6 +78,22 @@ export default {
         })
       }
       this.markets = markets
+    },
+    notify (title = '', message = '', variant = 'info', dismissible = true, autoDisappear = false) {
+      var data = {
+        id: this.notifications.length + 1,
+        title: title,
+        message: message,
+        dismissible: dismissible,
+        dismissCountDown: autoDisappear,
+        dismissSecs: autoDisappear,
+        variant: variant,
+        countDownChanged: (newCountdown) => {
+          data.dismissCountDown = newCountdown
+        }
+      }
+      this.notifications.push(data)
+      console.log('App: notify', data.id, data.title, data.message)
     }
   },
   socket: {
@@ -71,11 +105,52 @@ export default {
           console.log('App: Got some history', msg)
         }
       },
-      binanceUserData (msg) {
-        if (msg.status.code === 200) {
-          this.userData.push(msg.payload)
-          console.log('App: Got binanceUserData', msg)
+      orderInfo (msg) {
+        console.log('App: Got some orderInfo', msg)
+        const data = msg.payload
+        // create a Notification
+        let title
+        let message
+        let market
+        let symbol = data.symbol
+        for (let i = 0; i < this.markets.length; i++) {
+          if (data.symbol.endsWith(this.markets[i].market)) {
+            market = this.markets[i].market
+            symbol = data.symbol.substring(0, data.symbol.indexOf(market))
+          }
         }
+        switch (data.executionType) {
+          case 'NEW':
+            title = 'New ' + data.orderType.toLowerCase() + ' ' + data.side.toLowerCase() + ' order placed for ' + symbol
+            message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
+            break
+          case 'CANCELED':
+            title = data.side + ' order canceled for ' + data.symbol
+            message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
+            break
+          case 'REJECTED':
+            title = 'Order rejected for ' + symbol
+            message = 'Reason: ' + data.rejectReason
+            break
+          case 'TRADE':
+            if (data.orderStatus === 'FILLED') {
+              title = 'Order executed for ' + data.quantity + ' ' + symbol
+              message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
+            }
+            if (data.orderStatus === 'PARTIALLY_FILLED') {
+              const totalQuantity = Big(data.quantity)
+              const accumulatedQuantity = Big(data.accumulatedQuantity)
+              title = 'Order partially ' + (accumulatedQuantity.div(totalQuantity).times(100).toFixed(2)) + '% filled for ' + data.accumulatedQuantity + ' ' + symbol
+              message = data.lastTradeQuantity + ' ' + symbol + ' @ ' + data.price + ' ' + market + ' (' + (accumulatedQuantity.toString() + '/' + totalQuantity.toString()) + ')'
+            }
+            break
+          case 'EXPIRED':
+            title = 'Order expired ' + symbol
+            message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
+            break
+          default:
+        }
+        this.notify(title, message, 'info', true, 10)
       }
     }
   }
