@@ -32,10 +32,13 @@ const setupConfig = () => new Promise((resolve, reject) => {
   prop.parse(path.join(__dirname, 'config.properties'), propOptions, (err, data) => {
     if (!err) {
       config = data
+      if (data.server.port) {
+        process.env.PORT = data.server.port
+      }
       // for (let key in data) {
       //   console.log(key, data[key])
       // }
-      resolve()
+      resolve(data)
     } else {
       reject(err)
     }
@@ -45,65 +48,44 @@ const setupConfig = () => new Promise((resolve, reject) => {
 /**
  * Binance
  **/
-const api = require('binance')
-let binanceWebSocket
-const turnOnBinanceMonitor = (keys, ioRef) => new Promise((resolve, reject) => {
-  const binanceRest = new api.BinanceRest({
-      key: keys.public, // Get this from your account on binance.com
-      secret: keys.secret, // Same for this
-      timeout: 15000, // Optional, defaults to 15000, is the request time out in milliseconds
-      recvWindow: 10000 // Optional, defaults to 5000, increase if you're getting timestamp errors
+const binanceMLib = require('./lib/api/binance.js').BinanceModule
+let binanceModule
+const setupBinanceModule = (config, ioRef) => {
+  binanceModule = new binanceMLib({
+    publicKey: config.api.public,
+    secretKey: config.api.secret,
+    reconnectOnDisconnected: true,
+    retriesMax: 5
   })
-  const binanceWS = new api.BinanceWS(true)
-  try {
-    binanceWS.onUserData(binanceRest, (data) => {
-      console.debug('turnOnBinanceMonitor.onUserData', data)
-      ioRef.emit('binanceUserData', socketIoPackageWrapper(data))
-    }, 60000) // Optional, how often the keep alive should be sent in milliseconds
-    .then((ws) => {
-      // websocket instance available here
-      console.debug('turnOnBinanceMonitor.onUserData', '...then done')
-      resolve(ws)
-    })
-  } catch (e) {
-    reject(e)
-  }
-})
-
-const turnOffBinanceMonitor = () => {
-  console.debug('turnOffBinanceMonitor', (binanceWebSocket ? 'WebSocket is present' : 'WebSocket is not present'))
-  if (binanceWebSocket) {
-    binanceWebSocket.terminate()
-    console.debug('turnOffBinanceMonitor', 'Close WebSocket')
+  binanceModule.on('error', (error) => {
+    console.log('binanceModule.error', error)
+  })
+  binanceModule.on('userData', (data) => {
+    // TODO: Normalize the userData output so in case we add more exchanges,
+    // the package delivered to the front end is the same
+    if (data.eventType === 'executionReport') {
+      ioRef.emit('orderInfo', socketIoPackageWrapper(data))
+    } else if (data.eventType === 'outboundAccountInfo') {
+      ioRef.emit('balanceUpdate', socketIoPackageWrapper(data))
+    }
+  })
+  binanceModule.on('userDataDisconnected', (error) => {
+    console.log('binanceModule.userDataDisconnected', (error ? 'Forefully disconnected!' : 'Gracefully disconnected'))
+  })
+  if (store.botStatus.get('binanceMonitor') === 'On') {
+    binanceModule.startUserDataMonitor()
   }
 }
+const turnOnBinanceMonitor = () => {
+  console.debug('turnOnBinanceMonitor', 'Starting...')
+  binanceModule.startUserDataMonitor()
+  store.botStatus.set('binanceMonitor', 'On')
+}
 
-const startupSequenceBinanceMonitor = (ioRef) => {
-  if (store.botStatus.get('binanceMonitor') === 'On') {
-    console.debug('startupSequenceBinanceMonitor', 'Bot was on, so we are starting it on startup')
-    try {
-      turnOnBinanceMonitor({public: config.api.public, secret: config.api.secret}, ioRef).then((ws) => {
-        store.botStatus.set('binanceMonitor', 'On')
-        binanceWebSocket = ws
-        ws.addEventListener('close', (code, reason) => {
-          if (code === 200) {
-            // we gracefully shut down via UI
-          } else {
-            // some kind of error (maybe 24hour disconnection? network issue?)
-          }
-          store.botStatus.set('binanceMonitor', 'Off')
-          binanceWebSocket = null
-        })
-        resolve(ws)
-      }).catch((reason) => {
-        reject(reason)
-      })
-    } catch (e) {
-      reject(e)
-    }
-  } else {
-    resolve()
-  }
+const turnOffBinanceMonitor = () => {
+  console.debug('turnOffBinanceMonitor', 'Stopping...')
+  binanceModule.stopUserDataMonitor()
+  store.botStatus.set('binanceMonitor', 'Off')
 }
 
 /**
@@ -117,37 +99,20 @@ const processConfigurationChange = (key, value, ioRef, socketRef) => new Promise
         if (store.botStatus.get('binanceMonitor') === 'On') {
           // monitor already on, don't do anything
           // (maybe check on the running status)
-          console.debug('Configuration.binanceMonitor', 'Already On')
+          console.debug('processConfigurationChange.binanceMonitor', 'Already On')
         }
-        if (!store.botStatus.get('binanceMonitor') || store.botStatus.get('binanceMonitor') === 'Off' || !binanceWebSocket) {
-          console.debug('Configuration.binanceMonitor', 'Turn On', {public: config.api.public, secret: config.api.secret})
-          turnOnBinanceMonitor({public: config.api.public, secret: config.api.secret}, ioRef).then((ws) => {
-            store.botStatus.set('binanceMonitor', 'On')
-            binanceWebSocket = ws
-            ws.addEventListener('close', (code, reason) => {
-              if (code === 200) {
-                // we gracefully shut down via UI
-              } else {
-                // some kind of error (maybe 24hour disconnection? network issue?)
-              }
-              store.botStatus.set('binanceMonitor', 'Off')
-              binanceWebSocket = null
-            })
-            resolve()
-          }).catch((reason) => {
-            reject(reason)
-          })
+        if (!store.botStatus.get('binanceMonitor') || store.botStatus.get('binanceMonitor') === 'Off') {
+          console.debug('processConfigurationChange.binanceMonitor', 'Turn On')
+          turnOnBinanceMonitor()
         } else {
-          resolve()
+          // Already on
         }
       } else if (value === 'Off') {
         console.debug('processConfigurationChange.binanceMonitor', 'Turn Off')
         // find a way to turn it off!
         turnOffBinanceMonitor()
-        store.botStatus.set('binanceMonitor', 'Off')
-        resolve()
-        //reject()
       }
+      resolve()
       break
       default:
         reject('Configuration key is invalid')
@@ -259,10 +224,10 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
 })
 
 setupConfig()
+.then((config) => setupBinanceModule(config, io))
 .then(() => webpackConfigPromise)
 .then((wpConfig) => setupWebServer(wpConfig))
-.then((io) => startupSequenceBinanceMonitor(io))
-.then(() => console.log('finished'))
+.then(() => console.log('App: Startup sequence finished'))
 .catch(reason => {
   console.error('App:', reason)
   console.error('App: Setup sequence incomplete. Exiting now.')
