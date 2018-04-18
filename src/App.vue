@@ -110,10 +110,10 @@ export default {
   socket: {
     events: {
       history (msg) {
+        console.log('App: Got some history', msg)
         if (msg.status.code === 200) {
           this.$store.commit('history', msg.payload)
           this.getMarkets()
-          console.log('App: Got some history', msg)
         }
       },
       orderInfo (msg) {
@@ -162,6 +162,12 @@ export default {
           default:
         }
         this.notify(title, message, 'info', true, 10)
+      },
+      balanceUpdate (msg) {
+        console.log('App: Got some balances', msg)
+        if (msg.status.code === 200) {
+          this.$store.commit('balances', msg.payload.balances)
+        }
       }
     }
   }

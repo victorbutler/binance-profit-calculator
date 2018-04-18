@@ -4,6 +4,7 @@ import Dashboard from '@/pages/Dashboard'
 import Profits from '@/pages/Profits'
 import Configure from '@/pages/Configure'
 import Notifications from '@/pages/Notifications'
+import Balances from '@/pages/Balances'
 
 Vue.use(Router)
 
@@ -28,6 +29,11 @@ export default new Router({
       path: '/Notifications',
       name: 'Notifications',
       component: Notifications
+    },
+    {
+      path: '/Balances',
+      name: 'Balances',
+      component: Balances
     }
   ]
 })

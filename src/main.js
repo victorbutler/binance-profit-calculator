@@ -22,7 +22,8 @@ const store = new Vuex.Store({
   struct: true,
   state: {
     lastUpdated: null,
-    history: null
+    history: null,
+    balances: null
   },
   mutations: {
     update (state, lastUpdate) {
@@ -30,6 +31,9 @@ const store = new Vuex.Store({
     },
     history (state, data) {
       state.history = data
+    },
+    balances (state, data) {
+      state.balances = data
     }
   }
 })

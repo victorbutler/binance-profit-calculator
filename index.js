@@ -65,13 +65,14 @@ const setupBinanceModule = (config, ioRef) => {
     // the package delivered to the front end is the same
     if (data.eventType === 'executionReport') {
       ioRef.emit('orderInfo', socketIoPackageWrapper(data))
-    } else if (data.eventType === 'outboundAccountInfo') {
-      ioRef.emit('balanceUpdate', socketIoPackageWrapper(data))
     }
   }
   binanceModule.on('userData', userDataHandler)
   binanceModule.on('userDataDisconnected', (error) => {
     console.log('binanceModule.userDataDisconnected', (error ? 'Forefully disconnected!' : 'Gracefully disconnected'))
+  })
+  binanceModule.on('balanceUpdate', (data) => {
+    ioRef.emit('balanceUpdate', socketIoPackageWrapper(data))
   })
   if (store.botStatus.get('binanceMonitor') === 'On') {
     binanceModule.startUserDataMonitor()
@@ -81,6 +82,8 @@ const turnOnBinanceMonitor = () => {
   console.debug('turnOnBinanceMonitor', 'Starting...')
   binanceModule.startUserDataMonitor()
   store.botStatus.set('binanceMonitor', 'On')
+  // When first starting the bot, do a balanceUpdate
+  binanceModule.balanceUpdate()
 }
 
 const turnOffBinanceMonitor = () => {
@@ -190,6 +193,9 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
       console.debug('Socket.io: A user connected')
       if (store.get('history')) {
         socket.emit('history', socketIoPackageWrapper(store.get('history')))
+      }
+      if (binanceModule) {
+        binanceModule.balanceUpdate()
       }
       // socket.emit('profits', {timestamp: new Date(), data: profitsWithUSD()})
       socket.on('configuration', function(msg){

@@ -64,7 +64,7 @@ export default {
       sortDesc: false,
       fields: [
         { key: 'Coin', sortable: true },
-        { key: 'Amount', sortable: false },
+        { key: 'Amount', sortable: true },
         { key: 'Bought', sortable: true },
         { key: 'Sold', sortable: true },
         { key: 'Profit', sortable: true },
