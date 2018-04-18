@@ -3,6 +3,7 @@ import Router from 'vue-router'
 import Dashboard from '@/pages/Dashboard'
 import Profits from '@/pages/Profits'
 import Configure from '@/pages/Configure'
+import Notifications from '@/pages/Notifications'
 
 Vue.use(Router)
 
@@ -22,6 +23,11 @@ export default new Router({
       path: '/Configure',
       name: 'Configure',
       component: Configure
+    },
+    {
+      path: '/Notifications',
+      name: 'Notifications',
+      component: Notifications
     }
   ]
 })
