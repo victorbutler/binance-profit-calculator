@@ -64,7 +64,13 @@ export default {
   data () {
     return {
       markets: [],
-      notifications: []
+      notifications: [],
+      notificationsCounter: 0
+    }
+  },
+  computed: {
+    reverseNotifications () {
+      return this.notifications.slice().reverse()
     }
   },
   methods: {
@@ -81,7 +87,7 @@ export default {
     },
     notify (title = '', message = '', variant = 'info', dismissible = true, autoDisappear = false) {
       var data = {
-        id: this.notifications.length + 1,
+        id: this.notificationsCounter + 1,
         title: title,
         message: message,
         dismissible: dismissible,
@@ -92,7 +98,12 @@ export default {
           data.dismissCountDown = newCountdown
         }
       }
-      this.notifications.push(data)
+      if (this.notificationsCounter >= 10) {
+        this.notifications[this.notificationsCounter % 10] = data
+      } else {
+        this.notifications.push(data)
+      }
+      this.notificationsCounter++
       console.log('App: notify', data.id, data.title, data.message)
     }
   },
@@ -134,18 +145,18 @@ export default {
             break
           case 'TRADE':
             if (data.orderStatus === 'FILLED') {
-              title = 'Order executed for ' + data.quantity + ' ' + symbol
+              title = data.side + ' order executed for ' + data.quantity + ' ' + symbol
               message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
             }
             if (data.orderStatus === 'PARTIALLY_FILLED') {
               const totalQuantity = Big(data.quantity)
               const accumulatedQuantity = Big(data.accumulatedQuantity)
-              title = 'Order partially ' + (accumulatedQuantity.div(totalQuantity).times(100).toFixed(2)) + '% filled for ' + data.accumulatedQuantity + ' ' + symbol
+              title = data.side + ' order partially ' + (accumulatedQuantity.div(totalQuantity).times(100).toFixed(2)) + '% filled for ' + data.accumulatedQuantity + ' ' + symbol
               message = data.lastTradeQuantity + ' ' + symbol + ' @ ' + data.price + ' ' + market + ' (' + (accumulatedQuantity.toString() + '/' + totalQuantity.toString()) + ')'
             }
             break
           case 'EXPIRED':
-            title = 'Order expired ' + symbol
+            title = data.side + ' order expired ' + symbol
             message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
             break
           default:

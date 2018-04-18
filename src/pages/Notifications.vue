@@ -2,7 +2,7 @@
   <div class="container">
     <h1>Notifications</h1>
     <hr />
-    <div v-for="notification in $parent.notifications"
+    <div v-for="notification in $parent.reverseNotifications"
       v-bind:key="notification.id">
       <b-alert
         show

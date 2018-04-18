@@ -60,7 +60,7 @@ const setupBinanceModule = (config, ioRef) => {
   binanceModule.on('error', (error) => {
     console.log('binanceModule.error', error)
   })
-  binanceModule.on('userData', (data) => {
+  const userDataHandler = (data) => {
     // TODO: Normalize the userData output so in case we add more exchanges,
     // the package delivered to the front end is the same
     if (data.eventType === 'executionReport') {
@@ -68,7 +68,8 @@ const setupBinanceModule = (config, ioRef) => {
     } else if (data.eventType === 'outboundAccountInfo') {
       ioRef.emit('balanceUpdate', socketIoPackageWrapper(data))
     }
-  })
+  }
+  binanceModule.on('userData', userDataHandler)
   binanceModule.on('userDataDisconnected', (error) => {
     console.log('binanceModule.userDataDisconnected', (error ? 'Forefully disconnected!' : 'Gracefully disconnected'))
   })
