@@ -98,8 +98,11 @@ export default {
           data.dismissCountDown = newCountdown
         }
       }
+      // Only keep 10 notifications in the holster, save the rest somewhere else
+      // This might move to the BOT side
       if (this.notificationsCounter >= 10) {
-        this.notifications[this.notificationsCounter % 10] = data
+        this.notifications.push(data)
+        this.notifications.shift()
       } else {
         this.notifications.push(data)
       }
