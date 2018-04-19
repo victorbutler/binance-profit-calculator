@@ -37,8 +37,8 @@ export default {
       sortDesc: true,
       fields: [
         { key: 'asset', label: 'Coin', sortable: true },
-        { key: 'free', label: 'Available', sortable: true },
-        { key: 'locked', label: 'On order', sortable: true }
+        { key: 'availableBalance', label: 'Available', sortable: true },
+        { key: 'onOrderBalance', label: 'On order', sortable: true }
       ]
     }
   }
