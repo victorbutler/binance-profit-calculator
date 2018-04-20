@@ -46,6 +46,32 @@ const setupConfig = () => new Promise((resolve, reject) => {
 })
 
 /**
+ * Trade tracking
+ * TODO: History can get very large to be sending out the entire thing
+ * on every trade activity. Find a way to minimize this bloat.
+ * (try to only send differences?)
+ **/
+const tradeHistory = require('./server/tradeHistory.js')
+const addLineToHistory = (line) => {
+  // add to pairs _data (top of the stack, use Array.prototype.unshift() )
+  const myMarket = tradeHistory.DetectMarket(line.Market)
+  if (myMarket) {
+    // recalculate Amount, Fee, Bought, Sold, Difference, DifferenceWithoutBags
+    let databaseContainer = store.history.get(myMarket)
+    if (!databaseContainer) {
+      databaseContainer = {}
+    }
+    databaseContainer = tradeHistory.LineProcessor(line, databaseContainer)
+    databaseContainer = tradeHistory.BagProcessor(databaseContainer)
+    databaseContainer = tradeHistory.ProfitProcessor(databaseContainer)
+    store.history.set(myMarket, databaseContainer)
+  } else {
+    throw new Error('addLineToHistory', 'Undetectable market!', line.Market)
+  }
+  return databaseContainer
+}
+
+/**
  * Binance
  **/
 const binanceMLib = require('./lib/api/binance.js').BinanceModule
@@ -64,6 +90,24 @@ const setupBinanceModule = (config, ioRef) => {
     // TODO: Normalize the userData output so in case we add more exchanges,
     // the package delivered to the front end is the same
     if (data.eventType === 'executionReport') {
+      const accumulatedQuantity = Big(data.accumulatedQuantity)
+      if ((data.executionType === 'TRADE' && data.orderStatus === 'FILLED') ||
+          data.executionType === 'EXPIRED' && data.orderStatus === 'EXPIRED' && accumulatedQuantity.gt(0)) {
+        // If we get this far, we've finished buying/selling coins
+        const tradeTime = (new Date()).setTime(data.tradeTime)
+        const line = {
+          'Date(UTC)': tradeTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ''),
+          'Market': data.symbol,
+          'Type': data.side,
+          'Price': data.lastTradePrice,
+          'Amount': accumulatedQuantity.toString(),
+          'Total': accumulatedQuantity.times(Big(data.lastTradePrice)).toFixed(8).toString(),
+          'Fee': data.commission,
+          'Fee Coin': data.commissionAsset
+        }
+        const database = addLineToHistory(line)
+        ioRef.emit('history', socketIoPackageWrapper(database))
+      }
       ioRef.emit('orderInfo', socketIoPackageWrapper(data))
     }
   }
@@ -136,7 +180,6 @@ const webpack = require('webpack')
 const webpackDevMiddleware = require('webpack-dev-middleware')
 const webpackHotMiddleware = require('webpack-hot-middleware')
 const webpackConfigPromise = require('./build/webpack.dev.conf.js')
-const tradeHistory = require('./server/tradeHistory.js')
 
 const socketIoPackageWrapper = (payload, status) => {
   return {
@@ -155,7 +198,7 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
       if (req.file.originalname.match(/\.(xls|xlsx|csv)$/i)) {
         try {
           // send this filename to the tradeHistory processor
-          const database = tradeHistory(req.file.path)
+          const database = tradeHistory.ExcelProcessor(req.file.path)
           store.del('history')
           store.set('history', database)
           console.debug('TradeHistory imported and saved')

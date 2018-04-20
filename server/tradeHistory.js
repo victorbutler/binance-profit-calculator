@@ -9,92 +9,74 @@ const detectMarket = coinpair => {
   return (result ? result[1] : false)
 }
 
-module.exports = (filename) => {
-
-  const wb = xlsx.readFile(filename)
-  const lines = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
-  let databaseContainer = {}
-
-  const databaseTemplate = {
-    pairs: [],
-    _pairs: [],
-    bags: [],
-    _bags: [],
-    total: {
-      bought: Big(0),
-      sold: Big(0),
-      difference: Big(0),
-      fees: Big(0)
-    },
-    profitMinusBags: Big(0),
-    profitPlusBags: Big(0)
+const lineProcessor = (line, databaseContainer) => {
+  const market = detectMarket(line.Market)
+  const coin = line.Market.replace(new RegExp(market + '$'), '')
+  if (typeof databaseContainer[market] == 'undefined') {
+    // This is the database template below
+    databaseContainer[market] = {
+      pairs: [],
+      _pairs: [],
+      bags: [],
+      _bags: [],
+      total: {
+        bought: Big(0),
+        sold: Big(0),
+        difference: Big(0),
+        fees: Big(0)
+      },
+      profitMinusBags: Big(0),
+      profitPlusBags: Big(0)
+    }
   }
-
-  for (let line of lines) {
-    const market = detectMarket(line.Market)
-    const coin = line.Market.replace(new RegExp(market + '$'), '')
-    if (typeof databaseContainer[market] == 'undefined') {
-      // This is the database template below
-      databaseContainer[market] = {
-        pairs: [],
-        _pairs: [],
-        bags: [],
-        _bags: [],
-        total: {
-          bought: Big(0),
-          sold: Big(0),
-          difference: Big(0),
-          fees: Big(0)
-        },
-        profitMinusBags: Big(0),
-        profitPlusBags: Big(0)
-      }
+  let database = databaseContainer[market]
+  line.Price = Big(line.Price)
+  line.Amount = Big(line.Amount)
+  line.Total = Big(line.Total)
+  line.Fee = Big(line.Fee)
+  if (database._pairs.indexOf(line.Market) === -1) {
+    database._pairs.push(line.Market)
+    if (line.Type === 'SELL') {
+      // line.Total *= -1
+      line.Amount = line.Amount.times(-1)
     }
-    let database = databaseContainer[market]
-    line.Price = Big(line.Price)
-    line.Amount = Big(line.Amount)
-    line.Total = Big(line.Total)
-    line.Fee = Big(line.Fee)
-    if (database._pairs.indexOf(line.Market) === -1) {
-      database._pairs.push(line.Market)
-      if (line.Type === 'SELL') {
-        // line.Total *= -1
-        line.Amount = line.Amount.times(-1)
-      }
-      database.pairs.push({
-        Market: line.Market,
-        Coin: coin,
-        Amount: line.Amount,
-        Fee: line.Fee,
-        Bought: (line.Type === 'BUY') ? line.Total : Big(0),
-        Sold: (line.Type === 'SELL') ? line.Total : Big(0),
-        Difference: (line.Type === 'SELL') ? line.Total : line.Total.times(-1),
-        DifferenceWithoutBags: Big(0),
-        _data: [line]
-      })
-    } else {
-      if (line.Type === 'BUY') {
-        database.pairs[database._pairs.indexOf(line.Market)].Bought = database.pairs[database._pairs.indexOf(line.Market)].Bought.plus(line.Total)
-      } else if (line.Type === 'SELL') {
-        // line.Total = line.Total * -1
-        line.Amount = line.Amount.times(-1)
-        database.pairs[database._pairs.indexOf(line.Market)].Sold = database.pairs[database._pairs.indexOf(line.Market)].Sold.plus(line.Total)
-      }
-      // database.pairs[database._pairs.indexOf(line.Market)].Total += line.Total
-      database.pairs[database._pairs.indexOf(line.Market)].Fee = database.pairs[database._pairs.indexOf(line.Market)].Fee.plus(line.Fee)
-      database.pairs[database._pairs.indexOf(line.Market)].Amount = database.pairs[database._pairs.indexOf(line.Market)].Amount.plus(line.Amount)
-      database.pairs[database._pairs.indexOf(line.Market)].Difference = database.pairs[database._pairs.indexOf(line.Market)].Sold.minus(database.pairs[database._pairs.indexOf(line.Market)].Bought)
-      database.pairs[database._pairs.indexOf(line.Market)].DifferenceWithoutBags = database.pairs[database._pairs.indexOf(line.Market)].Sold.minus(database.pairs[database._pairs.indexOf(line.Market)].Bought)
-      database.pairs[database._pairs.indexOf(line.Market)]._data.push(line)
-    }
+    database.pairs.push({
+      Market: line.Market,
+      Coin: coin,
+      Amount: line.Amount,
+      Fee: line.Fee,
+      Bought: (line.Type === 'BUY') ? line.Total : Big(0),
+      Sold: (line.Type === 'SELL') ? line.Total : Big(0),
+      Difference: (line.Type === 'SELL') ? line.Total : line.Total.times(-1),
+      DifferenceWithoutBags: Big(0),
+      _data: [line]
+    })
+  } else {
     if (line.Type === 'BUY') {
-      database.total.bought = database.total.bought.plus(line.Total)
+      database.pairs[database._pairs.indexOf(line.Market)].Bought = database.pairs[database._pairs.indexOf(line.Market)].Bought.plus(line.Total)
     } else if (line.Type === 'SELL') {
-      database.total.sold = database.total.sold.plus(line.Total)
+      // line.Total = line.Total * -1
+      line.Amount = line.Amount.times(-1)
+      database.pairs[database._pairs.indexOf(line.Market)].Sold = database.pairs[database._pairs.indexOf(line.Market)].Sold.plus(line.Total)
     }
-    database.total.fees = database.total.fees.plus(line.Fee)
+    // database.pairs[database._pairs.indexOf(line.Market)].Total += line.Total
+    database.pairs[database._pairs.indexOf(line.Market)].Fee = database.pairs[database._pairs.indexOf(line.Market)].Fee.plus(line.Fee)
+    database.pairs[database._pairs.indexOf(line.Market)].Amount = database.pairs[database._pairs.indexOf(line.Market)].Amount.plus(line.Amount)
+    database.pairs[database._pairs.indexOf(line.Market)].Difference = database.pairs[database._pairs.indexOf(line.Market)].Sold.minus(database.pairs[database._pairs.indexOf(line.Market)].Bought)
+    database.pairs[database._pairs.indexOf(line.Market)].DifferenceWithoutBags = database.pairs[database._pairs.indexOf(line.Market)].Sold.minus(database.pairs[database._pairs.indexOf(line.Market)].Bought)
+    database.pairs[database._pairs.indexOf(line.Market)]._data.push(line)
   }
+  if (line.Type === 'BUY') {
+    database.total.bought = database.total.bought.plus(line.Total)
+  } else if (line.Type === 'SELL') {
+    database.total.sold = database.total.sold.plus(line.Total)
+  }
+  database.total.fees = database.total.fees.plus(line.Fee)
 
+  return databaseContainer
+}
+
+const bagProcessor = (databaseContainer) => {
   /**
    * At this point, our totals are correct (including Bags)
    * Now we try to backtrack and remove Bag totals to see
@@ -142,20 +124,60 @@ module.exports = (filename) => {
       }
     }
   }
+  return databaseContainer
+}
 
-  // console.log('MARKET, AMOUNT, FEE, BOUGHT, SOLD, PROFIT +BAGS, PROFIT -BAGS')
+const profitProcessor = (databaseContainer) => {
   for (let market in databaseContainer) {
     let profitMinusBags = Big(0)
     let profitPlusBags = Big(0)
     for (let profit of databaseContainer[market].pairs) {
       profitMinusBags = profitMinusBags.plus(profit.DifferenceWithoutBags)
       profitPlusBags = profitPlusBags.plus(profit.Difference)
-      // console.log(profit.Market + ', ' + profit.Amount.toString() + ', ' + profit.Fee.toString() + ', ' + profit.Bought.toString() + ', ' + profit.Sold.toString() + ', ' + profit.Difference.toString() + ', ' + profit.DifferenceWithoutBags.toString())
     }
     databaseContainer[market].profitMinusBags = profitMinusBags
     databaseContainer[market].profitPlusBags = profitPlusBags
   }
+  return databaseContainer
+}
+
+const excelProcessor = (filename) => {
+
+  const wb = xlsx.readFile(filename)
+  const lines = xlsx.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+  let databaseContainer = {}
+
+  const databaseTemplate = {
+    pairs: [],
+    _pairs: [],
+    bags: [],
+    _bags: [],
+    total: {
+      bought: Big(0),
+      sold: Big(0),
+      difference: Big(0),
+      fees: Big(0)
+    },
+    profitMinusBags: Big(0),
+    profitPlusBags: Big(0)
+  }
+
+  for (let line of lines) {
+    databaseContainer = lineProcessor(line, databaseContainer)
+  }
+
+  databaseContainer = bagProcessor(databaseContainer)
+
+  databaseContainer = profitProcessor(databaseContainer)
   // console.log('Profit -Bags:', profitMinusBags.toString(), 'Profit +Bags:', profitPlusBags.toString())
   // TODO: Get the market price for each Bag pair to show what profit would be if you sold right now
   return databaseContainer
+}
+
+module.exports = {
+  DetectMarket: detectMarket,
+  LineProcessor: lineProcessor,
+  BagProcessor: bagProcessor,
+  ProfitProcessor: profitProcessor,
+  ExcelProcessor: excelProcessor
 }
