@@ -51,7 +51,7 @@ const setupConfig = () => new Promise((resolve, reject) => {
  * on every trade activity. Find a way to minimize this bloat.
  * (try to only send differences?)
  **/
-const tradeHistory = require('./server/tradeHistory.js')
+const tradeHistory = require('./lib/tradeHistory.js')
 const addLineToHistory = (line) => {
   // add to pairs _data (top of the stack, use Array.prototype.unshift() )
   const myMarket = tradeHistory.DetectMarket(line.Market)
