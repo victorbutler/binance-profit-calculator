@@ -62,7 +62,7 @@ const addLineToHistory = (line) => {
       databaseContainer = {}
     }
     databaseContainer = tradeHistory.DatabaseContainerNormalizer(databaseContainer)
-    databaseContainer = tradeHistory.LineProcessor(line, databaseContainer)
+    databaseContainer = tradeHistory.LineProcessor(line, databaseContainer, true)
     databaseContainer = tradeHistory.BagProcessor(databaseContainer)
     databaseContainer = tradeHistory.ProfitProcessor(databaseContainer)
     store.set('history', databaseContainer)
@@ -246,7 +246,7 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
       if (store.get('history')) {
         socket.emit('history', socketIoPackageWrapper(store.get('history')))
       }
-      if (binanceModule) {
+      if (binanceModule && store.botStatus.get('binanceMonitor') === 'On') {
         binanceModule.balanceUpdate()
       }
       // socket.emit('profits', {timestamp: new Date(), data: profitsWithUSD()})
