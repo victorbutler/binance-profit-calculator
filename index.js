@@ -94,7 +94,7 @@ const setupBinanceModule = (config, ioRef) => {
       if ((data.executionType === 'TRADE' && data.orderStatus === 'FILLED') ||
           data.executionType === 'EXPIRED' && data.orderStatus === 'EXPIRED' && accumulatedQuantity.gt(0)) {
         // If we get this far, we've finished buying/selling coins
-        const tradeTime = (new Date()).setTime(data.tradeTime)
+        const tradeTime = new Date(data.tradeTime)
         const line = {
           'Date(UTC)': tradeTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ''),
           'Market': data.symbol,
