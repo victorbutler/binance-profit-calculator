@@ -57,14 +57,14 @@ const addLineToHistory = (line) => {
   const myMarket = tradeHistory.DetectMarket(line.Market)
   if (myMarket) {
     // recalculate Amount, Fee, Bought, Sold, Difference, DifferenceWithoutBags
-    let databaseContainer = store.history.get(myMarket)
+    let databaseContainer = store.get('history')
     if (!databaseContainer) {
       databaseContainer = {}
     }
     databaseContainer = tradeHistory.LineProcessor(line, databaseContainer)
     databaseContainer = tradeHistory.BagProcessor(databaseContainer)
     databaseContainer = tradeHistory.ProfitProcessor(databaseContainer)
-    store.history.set(myMarket, databaseContainer)
+    store.set('history', databaseContainer)
   } else {
     throw new Error('addLineToHistory', 'Undetectable market!', line.Market)
   }
