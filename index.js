@@ -65,10 +65,10 @@ const addLineToHistory = (line) => {
     databaseContainer = tradeHistory.BagProcessor(databaseContainer)
     databaseContainer = tradeHistory.ProfitProcessor(databaseContainer)
     store.set('history', databaseContainer)
+    return databaseContainer
   } else {
     throw new Error('addLineToHistory', 'Undetectable market!', line.Market)
   }
-  return databaseContainer
 }
 
 /**
@@ -106,7 +106,9 @@ const setupBinanceModule = (config, ioRef) => {
           'Fee Coin': data.commissionAsset
         }
         const database = addLineToHistory(line)
+        if (database) {
         ioRef.emit('history', socketIoPackageWrapper(database))
+      }
       }
       ioRef.emit('orderInfo', socketIoPackageWrapper(data))
     }
