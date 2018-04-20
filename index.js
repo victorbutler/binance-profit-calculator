@@ -61,6 +61,7 @@ const addLineToHistory = (line) => {
     if (!databaseContainer) {
       databaseContainer = {}
     }
+    databaseContainer = tradeHistory.DatabaseContainerNormalizer(databaseContainer)
     databaseContainer = tradeHistory.LineProcessor(line, databaseContainer)
     databaseContainer = tradeHistory.BagProcessor(databaseContainer)
     databaseContainer = tradeHistory.ProfitProcessor(databaseContainer)
@@ -91,20 +92,26 @@ const setupBinanceModule = (config, ioRef) => {
     // the package delivered to the front end is the same
     if (data.eventType === 'executionReport') {
       const accumulatedQuantity = Big(data.accumulatedQuantity)
+      const lastTradeQuantity = Big(data.lastTradeQuantity)
       if ((data.executionType === 'TRADE' && data.orderStatus === 'FILLED') ||
-          data.executionType === 'EXPIRED' && data.orderStatus === 'EXPIRED' && accumulatedQuantity.gt(0)) {
-        // If we get this far, we've finished buying/selling coins
+          (data.executionType === 'TRADE' && data.orderStatus === 'PARTIALLY_FILLED') ||
+          (data.executionType === 'EXPIRED' && data.orderStatus === 'EXPIRED' && accumulatedQuantity.gt(0))) {
+        const partiallyFilled = (data.executionType === 'TRADE' && data.orderStatus === 'PARTIALLY_FILLED') ? true : false
+        const lastTradePrice = Big(data.lastTradePrice)
+        const lastTradedTotal = lastTradeQuantity.times(lastTradePrice)
+        const accumulatedTotal = accumulatedQuantity.times(lastTradePrice)
         const tradeTime = new Date(data.tradeTime)
         const line = {
           'Date(UTC)': tradeTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ''),
           'Market': data.symbol,
           'Type': data.side,
-          'Price': data.lastTradePrice,
-          'Amount': accumulatedQuantity.toString(),
-          'Total': accumulatedQuantity.times(Big(data.lastTradePrice)).toFixed(8).toString(),
+          'Price': lastTradePrice.toFixed(8).toString(),
+          'Amount': lastTradeQuantity.toFixed(8).toString(),
+          'Total': lastTradedTotal.toFixed(8).toString(),
           'Fee': data.commission,
           'Fee Coin': data.commissionAsset
         }
+        console.log('userDataHandler', 'line created from trade activity', line)
         const database = addLineToHistory(line)
         if (database) {
         ioRef.emit('history', socketIoPackageWrapper(database))
