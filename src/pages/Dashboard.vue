@@ -6,10 +6,10 @@
       <b-card v-for="marketObject in this.$parent.markets" v-bind:key="marketObject.id"
               header-bg-variant="primary"
               header-text-variant="white"
-              :header="marketObject.market"
               class="text-center">
-        <h3 :class="['card-text', ($store.state.history[marketObject.market].profitPlusBags > 0 ? 'text-success' : '')]">Profit + Bags = {{ $store.state.history[marketObject.market].profitPlusBags }} {{ marketObject.market }}</h3>
-        <h3 :class="['card-text', ($store.state.history[marketObject.market].profitMinusBags > 0 ? 'text-success' : '')]">Profit - Bags = {{ $store.state.history[marketObject.market].profitMinusBags }} {{ marketObject.market }}</h3>
+        <h6 slot="header" class="mb-0">{{ marketObject.market }} Profits</h6>
+        <h4 :class="['card-text', ($store.state.history[marketObject.market].profitPlusBags > 0 ? 'text-success' : '')]">+Bags: {{ $store.state.history[marketObject.market].profitPlusBags }} {{ marketObject.market }}<br /><small>{{ $root.multiply($store.state.history[marketObject.market].profitPlusBags, $parent.getCoinMarketCapData(marketObject.market).price_usd) | accounting }}</small></h4>
+        <h4 :class="['card-text', ($store.state.history[marketObject.market].profitMinusBags > 0 ? 'text-success' : '')]">-Bags: {{ $store.state.history[marketObject.market].profitMinusBags }} {{ marketObject.market }}<br /><small>{{ $root.multiply($store.state.history[marketObject.market].profitMinusBags, $parent.getCoinMarketCapData(marketObject.market).price_usd) | accounting }}</small></h4>
       </b-card>
     </b-card-group>
     <div v-if="this.$parent.markets.length === 0">

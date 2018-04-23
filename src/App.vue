@@ -85,6 +85,22 @@ export default {
       }
       this.markets = markets
     },
+    getCoinMarketCapData (symbol) {
+      if (symbol) {
+        switch (symbol) {
+          case 'BCC':
+            symbol = 'BCH'
+            break
+          default:
+        }
+        for (let capData of this.$store.state.coinmarketcap) {
+          if (capData.symbol === symbol || capData.name === symbol || capData.id === symbol.toLowerCase()) {
+            return capData
+          }
+        }
+      }
+      return false
+    },
     notify (title = '', message = '', variant = 'info', dismissible = true, autoDisappear = false) {
       var data = {
         id: this.notificationsCounter + 1,
@@ -171,8 +187,16 @@ export default {
         if (msg.status.code === 200) {
           this.$store.commit('balances', msg.payload.balances)
         }
+      },
+      coinmarketcap (msg) {
+        console.log('App: Got coinmarketcap', msg)
+        if (msg.status.code === 200) {
+          this.$store.commit('coinmarketcap', msg.payload)
+        }
       }
     }
+  },
+  mounted () {
   }
 }
 </script>

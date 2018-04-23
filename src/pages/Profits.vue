@@ -27,6 +27,18 @@
           <template slot="emptyfiltered" slot-scope="data">
             <strong>No results</strong>
           </template>
+          <template slot="Coin" slot-scope="data">
+            {{ data.value }}
+            <small v-if="$parent.getCoinMarketCapData(data.item.Coin)"><br />{{ $parent.getCoinMarketCapData(data.item.Coin).price_usd | accounting }}</small>
+          </template>
+          <template slot="Profit" slot-scope="data">
+            <strong>{{ data.value }}</strong>
+            <small v-if="$parent.getCoinMarketCapData(marketObject.market)"><br />{{ $root.multiply(data.value, $parent.getCoinMarketCapData(marketObject.market).price_usd) | accounting }}</small>
+          </template>
+          <template slot="ProfitMinusBags" slot-scope="data">
+            <strong>{{ data.value }}</strong>
+            <small v-if="$parent.getCoinMarketCapData(marketObject.market)"><br />{{ $root.multiply(data.value, $parent.getCoinMarketCapData(marketObject.market).price_usd) | accounting }}</small>
+          </template>
           <template slot="FOOT_Coin" slot-scope="data">
             <!-- A custom formatted footer cell  for field 'name' -->
             <strong>Total</strong>

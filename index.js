@@ -75,73 +75,103 @@ const addLineToHistory = (line) => {
 /**
  * Binance
  **/
-const binanceMLib = require('./lib/api/binance.js').BinanceModule
+const binanceLib = require('./lib/api/binance.js')
+const binanceMLib = binanceLib.BinanceModule
 let binanceModule
-const setupBinanceModule = (config, ioRef) => {
-  binanceModule = new binanceMLib({
-    publicKey: config.api.public,
-    secretKey: config.api.secret,
-    reconnectOnDisconnected: true,
-    retriesMax: 5
-  })
-  binanceModule.on('error', (error) => {
-    console.log('binanceModule.error', error)
-  })
-  const userDataHandler = (data) => {
-    // TODO: Normalize the userData output so in case we add more exchanges,
-    // the package delivered to the front end is the same
-    if (data.eventType === 'executionReport') {
-      const accumulatedQuantity = Big(data.accumulatedQuantity)
-      const lastTradeQuantity = Big(data.lastTradeQuantity)
-      if ((data.executionType === 'TRADE' && data.orderStatus === 'FILLED') ||
-          (data.executionType === 'TRADE' && data.orderStatus === 'PARTIALLY_FILLED') ||
-          (data.executionType === 'EXPIRED' && data.orderStatus === 'EXPIRED' && accumulatedQuantity.gt(0))) {
-        const partiallyFilled = (data.executionType === 'TRADE' && data.orderStatus === 'PARTIALLY_FILLED') ? true : false
-        const lastTradePrice = Big(data.lastTradePrice)
-        const lastTradedTotal = lastTradeQuantity.times(lastTradePrice)
-        const accumulatedTotal = accumulatedQuantity.times(lastTradePrice)
-        const tradeTime = new Date(data.tradeTime)
-        const line = {
-          'Date(UTC)': tradeTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ''),
-          'Market': data.symbol,
-          'Type': data.side,
-          'Price': lastTradePrice.toFixed(8).toString(),
-          'Amount': lastTradeQuantity.toFixed(8).toString(),
-          'Total': lastTradedTotal.toFixed(8).toString(),
-          'Fee': data.commission,
-          'Fee Coin': data.commissionAsset
+const setupBinanceModule = (config, ioRef) => new Promise((resolve, reject) => {
+  try {
+    binanceModule = new binanceMLib({
+      publicKey: config.api.public,
+      secretKey: config.api.secret,
+      reconnectOnDisconnected: true,
+      retriesMax: 5
+    })
+    binanceModule.on('error', (error) => {
+      console.debug('binanceModule.error', error)
+      if (error.code === binanceLib.BinanceError.AuthKeysIssue) {
+        store.botStatus.set('binanceMonitor', 'Off')
+        ioRef.emit('error', error)
+        // set global error flag
+      }
+      if (error.code === binanceLib.BinanceError.KeysNotPresent) {
+        store.botStatus.set('binanceMonitor', 'Off')
+        ioRef.emit('error', error)
+        // set global error flag
+      }
+    })
+    const userDataHandler = (data) => {
+      // TODO: Normalize the userData output so in case we add more exchanges,
+      // the package delivered to the front end is the same
+      if (data.eventType === 'executionReport') {
+        const accumulatedQuantity = Big(data.accumulatedQuantity)
+        const lastTradeQuantity = Big(data.lastTradeQuantity)
+        if ((data.executionType === 'TRADE' && data.orderStatus === 'FILLED') ||
+            (data.executionType === 'TRADE' && data.orderStatus === 'PARTIALLY_FILLED') ||
+            (data.executionType === 'EXPIRED' && data.orderStatus === 'EXPIRED' && accumulatedQuantity.gt(0))) {
+          const partiallyFilled = (data.executionType === 'TRADE' && data.orderStatus === 'PARTIALLY_FILLED') ? true : false
+          const lastTradePrice = Big(data.lastTradePrice)
+          const lastTradedTotal = lastTradeQuantity.times(lastTradePrice)
+          const accumulatedTotal = accumulatedQuantity.times(lastTradePrice)
+          const tradeTime = new Date(data.tradeTime)
+          const line = {
+            'Date(UTC)': tradeTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ''),
+            'Market': data.symbol,
+            'Type': data.side,
+            'Price': lastTradePrice.toFixed(8).toString(),
+            'Amount': lastTradeQuantity.toFixed(8).toString(),
+            'Total': lastTradedTotal.toFixed(8).toString(),
+            'Fee': data.commission,
+            'Fee Coin': data.commissionAsset
+          }
+          console.log('userDataHandler', 'line created from trade activity', line)
+          const database = addLineToHistory(line)
+          if (database) {
+            ioRef.emit('history', socketIoPackageWrapper(database))
+          }
         }
-        console.log('userDataHandler', 'line created from trade activity', line)
-        const database = addLineToHistory(line)
-        if (database) {
-        ioRef.emit('history', socketIoPackageWrapper(database))
+        ioRef.emit('orderInfo', socketIoPackageWrapper(data))
       }
-      }
-      ioRef.emit('orderInfo', socketIoPackageWrapper(data))
+    }
+    binanceModule.on('userData', userDataHandler)
+    binanceModule.on('userDataDisconnected', (error) => {
+      console.log('binanceModule.userDataDisconnected', (error ? 'Forefully disconnected!' : 'Gracefully disconnected'))
+    })
+    binanceModule.on('balanceUpdate', (data) => {
+      ioRef.emit('balanceUpdate', socketIoPackageWrapper(data))
+    })
+    if (store.botStatus.get('binanceMonitor') === 'On') {
+      binanceModule.startUserDataMonitor()
+    }
+    resolve(binanceModule)
+  } catch (e) {
+    console.log(typeof e, e)
+    reject(e.message)
+  }
+})
+
+const turnOnBinanceMonitor = (cb = null) => {
+  if (binanceModule) {
+    console.debug('turnOnBinanceMonitor', 'Starting...')
+    binanceModule.startUserDataMonitor(cb)
+    store.botStatus.set('binanceMonitor', 'On')
+    // When first starting the bot, do a balanceUpdate
+    binanceModule.balanceUpdate()
+    // binanceModule.tickerPrice()
+    // .then((data) => {
+    //   console.debug('turnOnBinanceMonitor', 'binanceMonitor.tickerPrice', 'Received', data.length)
+    // })
+  } else {
+    if (cb && typeof cb === 'function') {
+      cb(new binanceLib.BinanceError())
     }
   }
-  binanceModule.on('userData', userDataHandler)
-  binanceModule.on('userDataDisconnected', (error) => {
-    console.log('binanceModule.userDataDisconnected', (error ? 'Forefully disconnected!' : 'Gracefully disconnected'))
-  })
-  binanceModule.on('balanceUpdate', (data) => {
-    ioRef.emit('balanceUpdate', socketIoPackageWrapper(data))
-  })
-  if (store.botStatus.get('binanceMonitor') === 'On') {
-    binanceModule.startUserDataMonitor()
-  }
-}
-const turnOnBinanceMonitor = () => {
-  console.debug('turnOnBinanceMonitor', 'Starting...')
-  binanceModule.startUserDataMonitor()
-  store.botStatus.set('binanceMonitor', 'On')
-  // When first starting the bot, do a balanceUpdate
-  binanceModule.balanceUpdate()
 }
 
 const turnOffBinanceMonitor = () => {
-  console.debug('turnOffBinanceMonitor', 'Stopping...')
-  binanceModule.stopUserDataMonitor()
+  if (binanceModule) {
+    console.debug('turnOffBinanceMonitor', 'Stopping...')
+    binanceModule.stopUserDataMonitor()
+  }
   store.botStatus.set('binanceMonitor', 'Off')
 }
 
@@ -160,16 +190,23 @@ const processConfigurationChange = (key, value, ioRef, socketRef) => new Promise
         }
         if (!store.botStatus.get('binanceMonitor') || store.botStatus.get('binanceMonitor') === 'Off') {
           console.debug('processConfigurationChange.binanceMonitor', 'Turn On')
-          turnOnBinanceMonitor()
+          turnOnBinanceMonitor((error, ws) => {
+            if (error) {
+              reject(error)
+            } else {
+              resolve(ws)
+            }
+          })
         } else {
           // Already on
+          resolve()
         }
       } else if (value === 'Off') {
         console.debug('processConfigurationChange.binanceMonitor', 'Turn Off')
         // find a way to turn it off!
         turnOffBinanceMonitor()
+        resolve()
       }
-      resolve()
       break
       default:
         reject('Configuration key is invalid')
@@ -189,6 +226,11 @@ const webpack = require('webpack')
 const webpackDevMiddleware = require('webpack-dev-middleware')
 const webpackHotMiddleware = require('webpack-hot-middleware')
 const webpackConfigPromise = require('./build/webpack.dev.conf.js')
+let userData = {
+  connected: 0,
+  handlers: {}
+}
+let coinMarketCapData = []
 
 const socketIoPackageWrapper = (payload, status) => {
   return {
@@ -196,6 +238,43 @@ const socketIoPackageWrapper = (payload, status) => {
     payload: payload,
     status: (status ? status : {code: 200, msg: 'OK'})
   }
+}
+
+const CoinmarketcapLib = require('node-coinmarketcap')
+const coinmarketcap = new CoinmarketcapLib({
+    events: true, // Enable event system
+    refresh: 30, // Refresh time in seconds (Default: 60)
+    convert: "USD" // Convert price to different currencies. (Default USD)
+})
+const userConnectedHandler = (socket, ioRef) => {
+  if (userData.connected === 0) { // previous count, before this connection
+    // connect user services
+    coinmarketcap.getAll((data) => {
+      coinMarketCapData = data
+      ioRef.emit('coinmarketcap', socketIoPackageWrapper(coinMarketCapData))
+    })
+    userData.handlers.coinMarketCap = setInterval(() => {
+      coinmarketcap.getAll((data) => {
+        coinMarketCapData = data
+        ioRef.emit('coinmarketcap', socketIoPackageWrapper(coinMarketCapData))
+      })
+      // coinmarketcap.multi(coins => {
+      //   for (let market in store.get('history')) {
+      //     console.log(coins.get(market))
+      //   }
+      // })
+    }, 30000) // every 30 seconds
+  }
+  userData.connected++
+}
+
+const userDisconnectedHandler = () => {
+  if (userData.connected === 1) { // previous count, before this connection
+    // disconnect all user related services
+    console.log('userDisconnectedHandler', 'Stopping user services')
+    clearTimeout(userData.handlers.coinMarketCap)
+  }
+  userData.connected--
 }
 
 const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
@@ -243,8 +322,15 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
     // Set up socket.io streaming
     io.on('connection', function(socket){
       console.debug('Socket.io: A user connected')
+      userConnectedHandler(socket, io)
       if (store.get('history')) {
         socket.emit('history', socketIoPackageWrapper(store.get('history')))
+      }
+      if (coinMarketCapData) {
+        socket.emit('coinmarketcap', socketIoPackageWrapper(coinMarketCapData))
+      }
+      if (store.configuration) {
+        socket.emit('configuration', socketIoPackageWrapper(store.configuration.get()))
       }
       if (binanceModule && store.botStatus.get('binanceMonitor') === 'On') {
         binanceModule.balanceUpdate()
@@ -252,7 +338,7 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
       // socket.emit('profits', {timestamp: new Date(), data: profitsWithUSD()})
       socket.on('configuration', function(msg){
         if (msg === 'Refresh') {
-          socket.emit('configuration', socketIoPackageWrapper(store.get('configuration')))
+          socket.emit('configuration', socketIoPackageWrapper(store.configuration.get()))
         } else {
           let key = msg.key || null
           let value = msg.value || null
@@ -260,15 +346,16 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
           processConfigurationChange(key, value, io, socket).then(() => {
             console.debug('Configuration', 'Returned successfully, notify everyone of config change')
             store.configuration.set(key, value)
-            io.emit('configuration', socketIoPackageWrapper(store.get('configuration')))
+            io.emit('configuration', socketIoPackageWrapper(store.configuration.get()))
           }).catch((reason) => {
-            console.debug('Configuration', 'Returned error, notify user of error')
+            console.debug('Configuration', 'Returned error, notify user of error', reason)
             socket.emit('configuration', socketIoPackageWrapper(null, {code: 500, msg: reason}))
           })
         }
       })
       socket.on('disconnect', function(){
         console.debug('Socket.io: A user disconnected')
+        userDisconnectedHandler()
       })
       resolve()
     })
@@ -278,7 +365,7 @@ const setupWebServer = (wpConfig) => new Promise((resolve, reject) => {
       console.log('Express: listening on *:' + config.server.port)
     })
   } catch (e) {
-    reject(e.message)
+    reject(e)
   }
 })
 
@@ -288,7 +375,7 @@ setupConfig()
 .then((wpConfig) => setupWebServer(wpConfig))
 .then(() => console.log('App: Startup sequence finished'))
 .catch(reason => {
-  console.error('App:', reason)
+  console.error('App Error:', reason)
   console.error('App: Setup sequence incomplete. Exiting now.')
   process.exit(1)
 })

@@ -7,6 +7,8 @@ import App from './App'
 import router from './router'
 import BootstrapVue from 'bootstrap-vue'
 import { Alert, FormFile, Navbar } from 'bootstrap-vue/es/components'
+import Accounting from 'accounting'
+import Big from 'big.js'
 
 // import $ from 'jquery'
 
@@ -18,12 +20,15 @@ Vue.use(FormFile)
 Vue.use(Navbar)
 Vue.config.productionTip = false
 
+Vue.filter('accounting', Accounting.formatMoney)
+
 const store = new Vuex.Store({
   struct: true,
   state: {
     lastUpdated: null,
     history: null,
-    balances: null
+    balances: null,
+    coinmarketcap: null
   },
   mutations: {
     update (state, lastUpdate) {
@@ -34,6 +39,9 @@ const store = new Vuex.Store({
     },
     balances (state, data) {
       state.balances = data
+    },
+    coinmarketcap (state, data) {
+      state.coinmarketcap = data
     }
   }
 })
@@ -44,5 +52,18 @@ new Vue({
   store: store,
   router,
   components: { App },
-  template: '<App/>'
+  template: '<App/>',
+  methods: {
+    multiply () {
+      let result
+      for (let num of arguments) {
+        if (!result) {
+          result = Big(num)
+        } else {
+          result = result.times(Big(num))
+        }
+      }
+      return result.toString()
+    }
+  }
 })
