@@ -16,9 +16,10 @@ export default new Router({
       component: Dashboard
     },
     {
-      path: '/Profits',
+      path: '/Profits/:tab?',
       name: 'Profits',
-      component: Profits
+      component: Profits,
+      props: true
     },
     {
       path: '/Configure',

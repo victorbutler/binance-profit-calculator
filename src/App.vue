@@ -75,15 +75,18 @@ export default {
   },
   methods: {
     getMarkets () {
-      let markets = []
-      let indexer = 0
-      for (const market in this.$store.state.history) {
-        markets.push({
-          id: indexer++,
-          market: market
-        })
+      if (this.markets.length === 0) {
+        let markets = []
+        let indexer = 0
+        for (const market in this.$store.state.history) {
+          markets.push({
+            id: indexer++,
+            market: market
+          })
+        }
+        this.markets = markets
       }
-      this.markets = markets
+      return this.markets
     },
     getCoinMarketCapData (symbol) {
       if (symbol) {

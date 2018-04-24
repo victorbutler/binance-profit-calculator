@@ -2,7 +2,7 @@
   <div class="container">
     <h1>Profits</h1>
     <hr />
-    <div class="row my-3" v-if="this.$parent.markets.length">
+    <div class="row my-3" v-if="$parent.markets.length">
       <div class="col-sm-4">
         <b-input-group>
           <b-form-input v-model="filter" placeholder="Type to Search" />
@@ -12,8 +12,17 @@
         </b-input-group>
       </div>
     </div>
-    <b-tabs v-if="this.$parent.markets.length">
-      <b-tab v-for="(marketObject, index) in this.$parent.markets" v-bind:key="marketObject.id" :title="marketObject.market" :active="index === 0">
+    <b-tabs
+      v-if="$parent.markets.length"
+      v-model="tabIndex"
+      @input="tabChange">
+      <b-tab
+        v-for="(marketObject) in $parent.markets"
+        v-bind:key="marketObject.id"
+        v-bind:href="('/Profits/' + marketObject.market)">
+        <template slot="title">
+          <strong>{{marketObject.market}}</strong> <small>{{ $parent.getCoinMarketCapData(marketObject.market).price_usd | accounting }}</small>
+        </template>
         <b-table
           striped
           hover
@@ -69,6 +78,11 @@
 import Big from 'big.js'
 export default {
   name: 'Profits',
+  props: {
+    tab: {
+      type: String
+    }
+  },
   data () {
     return {
       filter: null,
@@ -82,7 +96,9 @@ export default {
         { key: 'Profit', sortable: true },
         { key: 'ProfitMinusBags', sortable: true }
       ],
-      totals: {}
+      totals: {},
+      markets: [],
+      tIndex: 0
     }
   },
   methods: {
@@ -136,7 +152,41 @@ export default {
       // Trigger pagination to update the number of buttons/pages due to filtering
       // this.totalRows = filteredItems.length
       // this.currentPage = 1
+    },
+    tabChange (newIndex) {
+      for (let marketObj of this.$parent.getMarkets()) {
+        if (marketObj.id === newIndex) {
+          this.tIndex = newIndex
+          this.$router.push({path: '/Profits/' + marketObj.market})
+          break
+        }
+      }
+    },
+    tabFromRoute () {
+      if (this.tab) {
+        for (let marketObj of this.$parent.getMarkets()) {
+          if (marketObj.market === this.tab) {
+            this.tIndex = marketObj.id
+            break
+          }
+        }
+      }
     }
+  },
+  computed: {
+    tabIndex: {
+      get () {
+        this.tabFromRoute()
+        return this.tIndex
+      },
+      set (newValue) {
+        this.tabChange(newValue)
+      }
+    }
+  },
+  watch: {
+    // call again the method if the route changes
+    '$route': 'tabFromRoute'
   }
 }
 </script>

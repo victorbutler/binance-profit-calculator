@@ -10,13 +10,21 @@
       <b-collapse is-nav id="nav_collapse">
 
           <b-navbar-nav>
-            <b-nav-item to="Profits">Profits</b-nav-item>
-            <b-nav-item to="Notifications">Notifications</b-nav-item>
-            <b-nav-item to="Balances">Balances</b-nav-item>
-            <b-nav-item to="Configure">Configure</b-nav-item>
+            <b-nav-item to="/Profits">Profits</b-nav-item>
+            <b-nav-item to="/Notifications">Notifications</b-nav-item>
+            <b-nav-item to="/Balances">Balances</b-nav-item>
+            <b-nav-item to="/Configure">Configure</b-nav-item>
           </b-navbar-nav>
 
           <!-- Right aligned nav items -->
+          <b-navbar-nav class="ml-auto">
+            <b-nav-item class="text-white"
+              v-for="marketObject in $parent.markets"
+              v-bind:key="marketObject.id"
+              v-bind:to="('/Profits/' + marketObject.market)">
+              {{ marketObject.market }}: {{ $parent.getCoinMarketCapData(marketObject.market).price_usd | accounting }}
+            </b-nav-item>
+          </b-navbar-nav>
           <!-- <b-navbar-nav class="ml-auto">
 
             <b-nav-item-dropdown text="Coins" right>
