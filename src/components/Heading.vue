@@ -11,8 +11,8 @@
 
           <b-navbar-nav>
             <b-nav-item to="/Profits">Profits</b-nav-item>
-            <b-nav-item to="/Notifications">Notifications</b-nav-item>
             <b-nav-item to="/Balances">Balances</b-nav-item>
+            <b-nav-item to="/Notifications">Notifications</b-nav-item>
             <b-nav-item to="/Configure">Configure</b-nav-item>
           </b-navbar-nav>
 
