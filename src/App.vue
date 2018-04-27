@@ -152,34 +152,38 @@ export default {
             symbol = data.symbol.substring(0, data.symbol.indexOf(market))
           }
         }
+        let quantity = Big(data.quantity)
+        let price = Big(data.price)
         switch (data.executionType) {
           case 'NEW':
             title = 'New ' + data.orderType.toLowerCase() + ' ' + data.side.toLowerCase() + ' order placed for ' + symbol
-            message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
+            message = quantity.toString() + ' ' + symbol + ' @ ' + price.toString() + ' ' + ' = ' + quantity.times(price).toString() + ' ' + market
             break
           case 'CANCELED':
             title = data.side + ' order canceled for ' + data.symbol
-            message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
+            message = quantity.toString() + ' ' + symbol + ' @ ' + price.toString() + ' ' + ' = ' + quantity.times(price).toString() + ' ' + market
             break
           case 'REJECTED':
-            title = 'Order rejected for ' + symbol
-            message = 'Reason: ' + data.rejectReason
+            title = 'Order rejected for ' + quantity.toString() + ' ' + symbol
+            message = 'Reason: ' + data.rejectReason + '<br />' + quantity.toString() + ' ' + symbol + ' @ ' + price.toString() + ' ' + ' = ' + quantity.times(price).toString() + ' ' + market
             break
           case 'TRADE':
             if (data.orderStatus === 'FILLED') {
               title = data.side + ' order executed for ' + data.quantity + ' ' + symbol
-              message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
+              message = quantity.toString() + ' ' + symbol + ' @ ' + price.toString() + ' ' + ' = ' + quantity.times(price).toString() + ' ' + market
             }
             if (data.orderStatus === 'PARTIALLY_FILLED') {
               const totalQuantity = Big(data.quantity)
               const accumulatedQuantity = Big(data.accumulatedQuantity)
+              const lastTradeQuantity = Big(data.lastTradeQuantity)
+              const lastTradePrice = Big(data.lastTradePrice)
               title = data.side + ' order partially ' + (accumulatedQuantity.div(totalQuantity).times(100).toFixed(2)) + '% filled for ' + data.accumulatedQuantity + ' ' + symbol
-              message = data.lastTradeQuantity + ' ' + symbol + ' @ ' + data.price + ' ' + market + ' (' + (accumulatedQuantity.toString() + '/' + totalQuantity.toString()) + ')'
+              message = lastTradeQuantity.toString() + ' ' + symbol + ' @ ' + price.toString() + ' = ' + lastTradeQuantity.times(lastTradePrice).toString() + ' ' + market + ' (' + (accumulatedQuantity.toString() + '/' + totalQuantity.toString()) + ')'
             }
             break
           case 'EXPIRED':
             title = data.side + ' order expired ' + symbol
-            message = data.quantity + ' ' + symbol + ' @ ' + data.price + ' ' + market
+            message = quantity.toString() + ' ' + symbol + ' @ ' + price.toString() + ' ' + ' = ' + quantity.times(price).toString() + ' ' + market
             break
           default:
         }
