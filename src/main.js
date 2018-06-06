@@ -5,8 +5,6 @@ import Vuex from 'vuex'
 import VueWebsocket from 'vue-websocket'
 import App from './App'
 import router from './router'
-import BootstrapVue from 'bootstrap-vue'
-import { Alert, FormFile, Navbar } from 'bootstrap-vue/es/components'
 import Accounting from 'accounting'
 import Big from 'big.js'
 
@@ -14,10 +12,7 @@ import Big from 'big.js'
 
 Vue.use(Vuex)
 Vue.use(VueWebsocket)
-Vue.use(BootstrapVue)
-Vue.use(Alert)
-Vue.use(FormFile)
-Vue.use(Navbar)
+
 Vue.config.productionTip = false
 
 Vue.filter('accounting', Accounting.formatMoney)

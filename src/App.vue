@@ -1,7 +1,7 @@
 <template>
   <div id="app">
-    <Heading></Heading>
-    <div class="container">
+    <!-- <Heading></Heading> -->
+    <!-- <div class="container">
       <b-alert variant="warning" :show="$store.state.history === null">
         <span class="h5">Set up history:</span> Looks like your trade history hasn't been imported yet. Head over to the <b-link to="Configure" class="alert-link">Configure BPC page</b-link> to get started.
       </b-alert>
@@ -22,7 +22,7 @@
           </b-progress>
         </b-alert>
       </div>
-    </div>
+    </div> -->
     <div id="main" role="main">
       <!-- #MAIN CONTENT -->
       <div id="content">
@@ -37,7 +37,7 @@
 </template>
 
 <script>
-import Heading from './components/Heading.vue'
+// import Heading from './components/Heading.vue'
 import Big from 'big.js'
 
 // const checksum = function (s) {
@@ -58,9 +58,9 @@ import Big from 'big.js'
 
 export default {
   name: 'App',
-  components: {
-    Heading
-  },
+  // components: {
+  //   Heading
+  // },
   data () {
     return {
       markets: [],
@@ -209,7 +209,6 @@ export default {
 </script>
 
 <style lang="scss">
-  @import 'bootstrap/dist/css/bootstrap.css';
-  @import 'bootstrap-vue/dist/bootstrap-vue.css';
-  @import 'assets/sass/App';
+  @import 'materialize-css/dist/css/materialize.css';
+  @import 'assets/sass/App.scss';
 </style>
